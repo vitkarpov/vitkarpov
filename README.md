@@ -4,24 +4,32 @@ I'm a software engineer who's fond of designing programs and providing convincin
 
 ## 🧭 What I'm building
 
-I built **[System Design Interview Simulator](https://systemdesigntrainer.com)** — a tool that lets engineers practice real system design interviews under pressure, *before* the real one.
+**[Relational Formula Engine](https://github.com/vitkarpov/relational-formula-engine)** — an open-source formula engine for applications where users define their own objects, attributes, and relations at runtime. The machinery underneath a CRM's formula fields, a relational spreadsheet, or a no-code database — as a library you can embed. Inspired by [Attio's write-up on formula attributes](https://attio.com/engineering/blog/how-we-built-formula-attributes), but it's an engine, not a clone.
 
 ### Why I built it
 
-I kept noticing the same thing in myself and in people around me: engineers fail system design interviews not because they lack the knowledge, but because they can't perform it under the format. You panic. You don't know what to say at minute 30. You skip requirements and jump straight to drawing boxes. And mock interviews often provide warm, unhelpful feedback.
+Every product with user-defined data eventually grows formulas, and the hard part is never `Amount * 0.2`. It's that `Deal.Weighted = Amount * Company.Discount` reaches *across a relation*. Change one company's discount and you have to recompute exactly the deals pointing at that company — not every deal in the table, and not nothing. That's a compiler problem and a dependency-graph problem wearing a spreadsheet costume.
 
-I wanted something that behaves like the real thing — and that's hard. So I designed it the way I design everything: **flow over intelligence**. Instead of trusting an LLM to "be a good interviewer," the interview state lives in the backend, rules track signals, and a background scheduler enforces the clock. Phases advance whether you're ready or not. No manual advancing. No second chances. Just like the real room.
+Most implementations hard-code it: the schema lives in TypeScript, the checker is a pile of per-function `if`s, the parser dies on the first syntax error, and invalidation is "re-evaluate the object." I wanted the version where none of that is left to interpretation.
 
-The result is a system that's predictable and debuggable — I can tell you *exactly* why you lost points and which phase you ran out of time in, because none of that is left to interpretation.
+So: **schema is data**, loaded from a repository as an immutable snapshot rather than compiled into the app. **References resolve to stable IDs**, so renaming an attribute can't silently change what a saved formula means. **Diagnostics are data** — the lexer, parser, and checker all return span-aware structured errors instead of throwing, which is what makes editors, APIs, and LLM-generated formulas possible. And null handling, coercion, and division by zero have written-down semantics that produce typed values, not exceptions.
 
-## 🏗️ How it's built
+### How it's built
 
-- **Backend**: NestJS — interview orchestrator, phase-transition scheduler (Bull queue that ticks every minute), prompt engine, rule-based signal tracking
-- **Frontend**: React + Vite — chat-based interview UI, whiteboard, live timers
-- **AI layer**: stateless LLM as the interviewer persona; all context comes from the backend
-- **Data**: PostgreSQL + Drizzle ORM
+- **Language**: hand-written lexer + recursive-descent parser → AST, with a printer and round-trip tests
+- **Types**: functions declare their parameters, generics, coercions, and return type in a registry; the checker consumes declarations instead of scattering per-function validation
+- **Dependencies**: an edge isn't just an attribute ID — it carries the relation path needed to map a changed source record back to the formula records it affects
+- **Recompute**: one frontier-based engine walking the graph in topological order, shared by value writes, formula edits, and bulk evaluation
+- **Storage**: SQLite reference adapter behind `SchemaRepository` / `ValueStore` interfaces, plus a pure in-memory adapter — the compiler knows nothing about SQL
+- **Surfaces**: TypeScript library (Node + a browser-safe export with no native deps), a reference CLI with `--json` for agents, a CodeMirror playground, and an example MCP server
 
-The design philosophy in one line: **a rigid interview flow with simple heuristics beats a smart AI with no structure.**
+The design philosophy in one line: **schema is data, diagnostics are data, and invalidation follows relations.**
+
+## 🛠️ Also built
+
+**[System Design Interview Simulator](https://systemdesigntrainer.com)** — practice real system design interviews under pressure, before the real one. Engineers fail these interviews not because they lack the knowledge, but because they can't perform it under the format.
+
+Built on the same instinct: interview state lives in the backend, rules track signals, and a Bull-queue scheduler enforces the clock — phases advance whether you're ready or not. NestJS + React/Vite + PostgreSQL/Drizzle, with a stateless LLM as the interviewer persona and all context supplied server-side. **A rigid interview flow with simple heuristics beats a smart AI with no structure.**
 
 ## 💼 Currently
 
@@ -29,9 +37,4 @@ Engineering at **HubSpot**, and building on the side.
 
 ## 🧠 I like
 
-Designing programs I can prove correct · interviews & competitive programming · turning fuzzy problems into systems with clear, enforceable rules.
-
-## 📫 Find me
-
-- 🌐 [systemdesigntrainer.com](https://systemdesigntrainer.com)
-- 🐙 [github.com/vitkarpov](https://github.com/vitkarpov)
+Designing programs I can prove correct · compilers, type systems, and incremental computation · interviews & competitive programming · turning fuzzy problems into systems with clear, enforceable rules.
